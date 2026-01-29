@@ -1,6 +1,19 @@
 # Cobblestone (Rust)
 
 CLI tool to scrobble Rockbox `playback.log` entries to Last.fm or Libre.fm.
+Cobblestone does not depend on the Rockbox Last.fm plugin.
+Cobblestone currently supports Rockbox 4.0.0 only due to tagcache database
+format specifics.
+
+## Rockbox playback logging
+
+Playback logging must be enabled for `playback.log` to be populated. In Rockbox:
+
+1. Open **Settings**.
+2. Go to **Playback Settings**.
+3. Enable **Logging**.
+
+The log is written to `<rockbox-dir>/playback.log`.
 
 ## Build
 
