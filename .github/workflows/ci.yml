@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["*"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  checks:
+    if: github.ref_type != 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Format check
+        run: cargo fmt --all -- --check
+      - name: Clippy (pedantic)
+        run: cargo clippy -- -W clippy::pedantic
+
+  release_build:
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build release binary
+        run: cargo build --release
+      - name: Package tarball
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          tar -czf "cobblestone-${tag}-linux-x86_64.tar.gz" \
+            target/release/cobblestone \
+            README.md \
+            LICENSE
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobblestone-${{ github.ref_name }}-linux-x86_64
+          path: target/release/cobblestone
+      - name: Upload tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobblestone-${{ github.ref_name }}-linux-x86_64-tarball
+          path: cobblestone-${{ github.ref_name }}-linux-x86_64.tar.gz
