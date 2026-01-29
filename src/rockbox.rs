@@ -158,39 +158,38 @@ impl TagCache {
     }
 
     fn load_path_index(&mut self) -> Result<&HashMap<String, i32>> {
-        if self.path_index.is_some() {
-            return Ok(self.path_index.as_ref().unwrap());
+        if self.path_index.is_none() {
+            let endian = self.endian;
+            let index = self.with_tag_file(TAG_FILENAME, |handle| {
+                handle.seek(SeekFrom::Start(0))?;
+                let (magic, _data_size, entry_count) = Self::read_header(endian, handle)?;
+                if magic != TAGCACHE_MAGIC {
+                    bail!("Tagcache filename index has invalid header");
+                }
+                let mut index = HashMap::new();
+                for _ in 0..entry_count {
+                    let mut entry = [0u8; TAGFILE_ENTRY_HEADER_SIZE];
+                    if handle.read(&mut entry)? != TAGFILE_ENTRY_HEADER_SIZE {
+                        break;
+                    }
+                    let tag_length = endian.read_u32(&entry[0..4]);
+                    let idx_id = endian.read_u32(&entry[4..8]);
+                    if tag_length == 0 {
+                        continue;
+                    }
+                    let tag_length =
+                        usize::try_from(tag_length).context("Invalid tagcache string length")?;
+                    let idx_id = i32::try_from(idx_id).context("Invalid tagcache index id")?;
+                    let mut data = vec![0u8; tag_length];
+                    handle.read_exact(&mut data)?;
+                    let path = data.split(|byte| *byte == 0).next().unwrap_or_default();
+                    index.insert(String::from_utf8_lossy(path).to_string(), idx_id);
+                }
+                Ok(index)
+            })?;
+            self.path_index = Some(index);
         }
-        let endian = self.endian;
-        let index = self.with_tag_file(TAG_FILENAME, |handle| {
-            handle.seek(SeekFrom::Start(0))?;
-            let (magic, _data_size, entry_count) = Self::read_header(endian, handle)?;
-            if magic != TAGCACHE_MAGIC {
-                bail!("Tagcache filename index has invalid header");
-            }
-            let mut index = HashMap::new();
-            for _ in 0..entry_count {
-                let mut entry = [0u8; TAGFILE_ENTRY_HEADER_SIZE];
-                if handle.read(&mut entry)? != TAGFILE_ENTRY_HEADER_SIZE {
-                    break;
-                }
-                let tag_length = endian.read_u32(&entry[0..4]);
-                let idx_id = endian.read_u32(&entry[4..8]);
-                if tag_length == 0 {
-                    continue;
-                }
-                let tag_length =
-                    usize::try_from(tag_length).context("Invalid tagcache string length")?;
-                let idx_id = i32::try_from(idx_id).context("Invalid tagcache index id")?;
-                let mut data = vec![0u8; tag_length];
-                handle.read_exact(&mut data)?;
-                let path = data.split(|byte| *byte == 0).next().unwrap_or_default();
-                index.insert(String::from_utf8_lossy(path).to_string(), idx_id);
-            }
-            Ok(index)
-        })?;
-        self.path_index = Some(index);
-        Ok(self.path_index.as_ref().unwrap())
+        Ok(self.path_index.as_ref().expect("path index initialized"))
     }
 
     pub fn find_idx_id(&mut self, path: &str) -> Result<Option<i32>> {
