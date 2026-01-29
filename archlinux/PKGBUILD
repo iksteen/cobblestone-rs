@@ -1,0 +1,22 @@
+pkgname=cobblestone-rs
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Scrobble Rockbox playback logs to Last.fm or Libre.fm"
+arch=("x86_64")
+url="https://github.com/iksteen/cobblestone-rs"
+license=("MIT")
+depends=()
+makedepends=("cargo")
+source=("$pkgname-$pkgver.tar.gz::https://github.com/iksteen/cobblestone-rs/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=("SKIP")
+
+build() {
+  cd "$srcdir/cobblestone-rs-$pkgver"
+  cargo build --release --locked
+}
+
+package() {
+  cd "$srcdir/cobblestone-rs-$pkgver"
+  install -Dm755 target/release/cobblestone "$pkgdir/usr/bin/cobblestone"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
