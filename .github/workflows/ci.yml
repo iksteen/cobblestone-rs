@@ -21,7 +21,7 @@ jobs:
       - name: Clippy (pedantic)
         run: cargo clippy -- -W clippy::pedantic
 
-  release_build:
+  release_linux_x86_64:
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
@@ -31,26 +31,100 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Build release binary
         run: cargo build --release
-      - name: Package tarball
+      - name: Prepare release binary
         run: |
           tag="${GITHUB_REF_NAME}"
-          tar -czf "cobblestone-${tag}-linux-x86_64.tar.gz" \
-            target/release/cobblestone \
-            README.md \
-            LICENSE
+          mkdir -p dist
+          cp target/release/cobblestone "dist/cobblestone-${tag}-linux-x86_64"
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
           name: cobblestone-${{ github.ref_name }}-linux-x86_64
-          path: target/release/cobblestone
-      - name: Upload tarball
+          path: dist/cobblestone-${{ github.ref_name }}-linux-x86_64
+
+  release_linux_aarch64:
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build release binary
+        run: cargo build --release
+      - name: Prepare release binary
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          mkdir -p dist
+          cp target/release/cobblestone "dist/cobblestone-${tag}-linux-aarch64"
+      - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
-          name: cobblestone-${{ github.ref_name }}-linux-x86_64-tarball
-          path: cobblestone-${{ github.ref_name }}-linux-x86_64.tar.gz
+          name: cobblestone-${{ github.ref_name }}-linux-aarch64
+          path: dist/cobblestone-${{ github.ref_name }}-linux-aarch64
+
+  release_macos_aarch64:
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build release binary
+        run: cargo build --release
+      - name: Prepare release binary
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          mkdir -p dist
+          cp target/release/cobblestone "dist/cobblestone-${tag}-macos-aarch64"
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobblestone-${{ github.ref_name }}-macos-aarch64
+          path: dist/cobblestone-${{ github.ref_name }}-macos-aarch64
+
+  release_windows_x86_64:
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build release binary
+        run: cargo build --release
+      - name: Prepare release binary
+        run: |
+          $tag = "${env:GITHUB_REF_NAME}"
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item target/release/cobblestone.exe "dist/cobblestone-$tag-windows-x86_64.exe"
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobblestone-${{ github.ref_name }}-windows-x86_64
+          path: dist/cobblestone-${{ github.ref_name }}-windows-x86_64.exe
+
+  release_publish:
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    needs:
+      - release_linux_x86_64
+      - release_linux_aarch64
+      - release_macos_aarch64
+      - release_windows_x86_64
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Prepare release assets
+        run: |
+          mkdir -p release
+          find dist -type f -maxdepth 2 -print0 | xargs -0 -I{} cp {} release/
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            target/release/cobblestone
-            cobblestone-${{ github.ref_name }}-linux-x86_64.tar.gz
+            release/*
