@@ -225,7 +225,8 @@ fn handle_scrobble(args: ScrobbleArgs) -> Result<()> {
 
     let entries = parse_playback_log(&playback_path)?;
     if entries.is_empty() {
-        bail!("No playback entries found.");
+        println!("No playback entries found.");
+        return Ok(());
     }
 
     let mut tagcache = TagCache::new(&args.rockbox_dir)?;
